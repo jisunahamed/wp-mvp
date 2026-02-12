@@ -60,52 +60,30 @@ export async function POST(req: Request) {
             }, { status: 429 });
         }
 
-        // 5. Baileys Send
-        try {
-            // Dynamic import to avoid build-time initialization issues with native modules in Baileys
-            const { BaileysConnectionManager } = await import('@/lib/baileys/connection');
-            const { sock } = await BaileysConnectionManager.getConnection(session.id);
+        // 3. Queue Message (Insert into DB)
+        // The Worker service will listen to this insert and send the message.
+        const { data: message, error: messageError } = await supabaseAdmin
+            .from('messages')
+            .insert({
+                session_id: session_id,
+                to_number: to,
+                direction: 'outgoing',
+                content: { text: text },
+                status: 'pending', // Worker picks up 'pending'
+                message_type: 'text'
+            })
+            .select()
+            .single();
 
-            const jid = `${to}@s.whatsapp.net`;
-            const sentMsg = await sock.sendMessage(jid, { text });
-
-            if (!sentMsg) {
-                throw new Error('Baileys failed to send message (returned undefined)');
-            }
-
-            // 6. Save to DB
-            const { data: msgRecord, error: dbError } = await supabaseAdmin
-                .from('messages')
-                .insert({
-                    session_id: session.id,
-                    message_id: sentMsg.key.id,
-                    direction: 'outgoing',
-                    message_type: 'text',
-                    from_number: session.phone_number || 'unknown',
-                    to_number: to,
-                    content: { text },
-                    status: 'sent'
-                })
-                .select('id, created_at')
-                .single();
-
-            if (dbError) {
-                console.error('Failed to log message to DB:', dbError);
-                // Message sent but not logged... technically partial success.
-                // We return success but log error.
-            }
-
-            return NextResponse.json({
-                message_id: msgRecord?.id || 'pending_log',
-                wa_id: sentMsg.key.id,
-                status: 'sent',
-                queued_at: msgRecord?.created_at || new Date().toISOString()
-            });
-
-        } catch (baileysError: any) {
-            console.error('Baileys Send Error:', baileysError);
-            return NextResponse.json({ error: 'Failed to send message via WhatsApp network' }, { status: 502 });
+        if (messageError) {
+            return NextResponse.json({ error: messageError.message }, { status: 500 });
         }
+
+        return NextResponse.json({
+            status: 'queued',
+            message_id: message.id,
+            message: 'Message queued for sending'
+        });
 
     } catch (error) {
         console.error('Internal Send Error:', error);

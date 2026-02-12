@@ -45,7 +45,7 @@ export async function POST(req: Request) {
             .insert({
                 user_id: userId,
                 session_name,
-                status: 'pending'
+                status: 'pending' // Initial status, will be updated by worker
             })
             .select('id, session_name, status')
             .single();
@@ -58,11 +58,19 @@ export async function POST(req: Request) {
             );
         }
 
+        // REFACTOR: In Hybrid Architecture, we only create the session record.
+        // The Worker service (listening to DB changes) will pick this up and start the connection.
+
+        // Ensure status is pending_worker so worker picks it up
+        await supabaseAdmin
+            .from('sessions')
+            .update({ status: 'pending_worker' })
+            .eq('id', session.id);
+
         return NextResponse.json({
             session_id: session.id,
-            session_name: session.session_name,
-            status: session.status,
-            message: 'Session created. Call /api/sessions/' + session.id + '/qr to get QR code'
+            message: 'Session created. Waiting for worker to initialize...',
+            qr_code: null
         });
 
     } catch (error) {
