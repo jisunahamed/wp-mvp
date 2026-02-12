@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { authenticateApiKey } from '@/lib/middleware/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
     req: Request,
     { params }: { params: Promise<{ id: string }> }

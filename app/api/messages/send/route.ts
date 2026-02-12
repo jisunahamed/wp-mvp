@@ -5,6 +5,8 @@ import { checkRateLimit } from '@/lib/middleware/rate-limit';
 import { sendMessageSchema } from '@/lib/validation/schemas';
 import { BaileysConnectionManager } from '@/lib/baileys/connection';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
     try {
         // 1. Auth check

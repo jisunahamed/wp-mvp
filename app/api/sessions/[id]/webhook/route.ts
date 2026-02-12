@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { authenticateApiKey } from '@/lib/middleware/auth';
 import { webhookSchema } from '@/lib/validation/schemas';
 
+export const dynamic = 'force-dynamic';
+
 export async function PATCH(
     req: Request,
     { params }: { params: Promise<{ id: string }> }

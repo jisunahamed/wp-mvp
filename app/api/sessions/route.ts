@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { createSessionSchema } from '@/lib/validation/schemas';
 import { authenticateApiKey } from '@/lib/middleware/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
     try {
         const userId = await authenticateApiKey(req);
@@ -90,8 +92,8 @@ export async function GET(req: Request) {
         }
 
         // Map to simplified response keys if needed, but schema matches requested format mostly
-        const mappedSessions = sessions.map(s => ({
-            session_id: s.id,
+        const safeSessions = (sessions || []).map((s: any) => ({
+            id: s.id,
             session_name: s.session_name,
             phone_number: s.phone_number,
             status: s.status,
@@ -99,7 +101,7 @@ export async function GET(req: Request) {
             last_seen: s.last_seen
         }));
 
-        return NextResponse.json({ sessions: mappedSessions });
+        return NextResponse.json({ sessions: safeSessions });
 
     } catch (error) {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
