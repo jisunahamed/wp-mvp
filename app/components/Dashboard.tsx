@@ -6,6 +6,7 @@ import { Copy, Check, RefreshCw, Send, Smartphone, Key, LogIn } from "lucide-rea
 
 export default function Dashboard() {
     const [activeTab, setActiveTab] = useState<"register" | "connect" | "send">("register");
+    const [authMode, setAuthMode] = useState<'register' | 'login'>('register');
 
     // Auth State
     const [email, setEmail] = useState("");
@@ -196,39 +197,88 @@ export default function Dashboard() {
                 {/* Register Tab */}
                 {activeTab === "register" && (
                     <div className="space-y-4 max-w-md mx-auto mt-8">
-                        <h2 className="text-xl font-bold text-white mb-6">Get your API Key</h2>
-                        <div className="space-y-2">
-                            <label className="text-sm text-slate-400">Email</label>
-                            <input
-                                className="w-full bg-slate-800 border-slate-700 rounded p-2 text-white focus:ring-2 focus:ring-green-500 outline-none"
-                                value={email}
-                                onChange={e => setEmail(e.target.value)}
-                                placeholder="user@example.com"
-                            />
+                        <div className="flex justify-center mb-6 bg-slate-800 rounded-lg p-1">
+                            <button
+                                onClick={() => setAuthMode('register')}
+                                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition ${authMode === 'register' ? 'bg-green-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                Create Account
+                            </button>
+                            <button
+                                onClick={() => setAuthMode('login')}
+                                className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition ${authMode === 'login' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                Login with Key
+                            </button>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-sm text-slate-400">Password</label>
-                            <input
-                                type="password"
-                                className="w-full bg-slate-800 border-slate-700 rounded p-2 text-white focus:ring-2 focus:ring-green-500 outline-none"
-                                value={password}
-                                onChange={e => setPassword(e.target.value)}
-                                placeholder="••••••••"
-                            />
-                        </div>
-                        <button
-                            onClick={handleRegister}
-                            disabled={loading}
-                            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded transition disabled:opacity-50"
-                        >
-                            {loading ? "Registering..." : "Create Account"}
-                        </button>
 
-                        {apiKey && (
-                            <div className="mt-6 p-4 bg-green-900/20 border border-green-800 rounded-lg">
-                                <p className="text-green-400 text-sm font-mono break-all mb-2">API Key: {apiKey}</p>
-                                <p className="text-slate-500 text-xs text-center">Auto-saved to browser.</p>
-                            </div>
+                        {authMode === 'register' ? (
+                            <>
+                                <h2 className="text-xl font-bold text-white mb-6">Get your API Key</h2>
+                                <div className="space-y-2">
+                                    <label className="text-sm text-slate-400">Email</label>
+                                    <input
+                                        className="w-full bg-slate-800 border-slate-700 rounded p-2 text-white focus:ring-2 focus:ring-green-500 outline-none"
+                                        value={email}
+                                        onChange={e => setEmail(e.target.value)}
+                                        placeholder="user@example.com"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm text-slate-400">Password (optional)</label>
+                                    <input
+                                        type="password"
+                                        className="w-full bg-slate-800 border-slate-700 rounded p-2 text-white focus:ring-2 focus:ring-green-500 outline-none"
+                                        value={password}
+                                        onChange={e => setPassword(e.target.value)}
+                                        placeholder="••••••••"
+                                    />
+                                </div>
+                                <button
+                                    onClick={handleRegister}
+                                    disabled={loading}
+                                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded transition disabled:opacity-50"
+                                >
+                                    {loading ? "Registering..." : "Create Account"}
+                                </button>
+
+                                {apiKey && (
+                                    <div className="mt-6 p-4 bg-green-900/20 border border-green-800 rounded-lg">
+                                        <p className="text-green-400 text-sm font-mono break-all mb-2">API Key: {apiKey}</p>
+                                        <p className="text-slate-500 text-xs text-center">Auto-saved to browser.</p>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                <h2 className="text-xl font-bold text-white mb-6">Login</h2>
+                                <p className="text-slate-400 text-sm mb-4">Enter the API Key you received during registration.</p>
+                                <div className="space-y-2">
+                                    <label className="text-sm text-slate-400">API Key</label>
+                                    <input
+                                        type="text"
+                                        className="w-full bg-slate-800 border-slate-700 rounded p-2 text-white focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                                        value={apiKey}
+                                        onChange={e => setApiKey(e.target.value)}
+                                        placeholder="sk_..."
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        if (apiKey.startsWith('sk_')) {
+                                            localStorage.setItem("wp_api_key", apiKey);
+                                            // Ideally we'd validate it here with a GET /api/sessions call or similar
+                                            setActiveTab("connect");
+                                            addLog("Logged in with existing API Key.");
+                                        } else {
+                                            addLog("Invalid API Key format.");
+                                        }
+                                    }}
+                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded transition"
+                                >
+                                    Access Dashboard
+                                </button>
+                            </>
                         )}
                     </div>
                 )}

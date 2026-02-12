@@ -43,6 +43,16 @@ export async function GET(
         const isExpired = expiresAt ? expiresAt < now : true;
 
         if (!session.qr_code || isExpired) {
+            // Trigger QR generation if not ready
+            try {
+                const { BaileysConnectionManager } = await import('@/lib/baileys/connection');
+                // This call starts the connection logic if not active
+                await BaileysConnectionManager.getConnection(id);
+            } catch (err) {
+                console.error('Failed to trigger Baileys connection:', err);
+                // Continue to return "initializing" so frontend keeps polling
+            }
+
             return NextResponse.json({
                 status: 'initializing',
                 message: 'QR code generating... please poll again in 5 seconds',
