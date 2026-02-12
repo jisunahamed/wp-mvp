@@ -127,13 +127,13 @@ export class BaileysConnectionManager {
 
             sock.ev.on('connection.update', listener);
 
-            // Timeout after 10 seconds if no QR or connection (prevent hanging)
+            // Timeout after 40 seconds if no QR or connection (Vercel limit is 10s/60s depending on plan)
             setTimeout(() => {
                 if (!resolved) {
                     console.log(`[${sessionId}] Connection wait timeout`);
                     resolve({ sock, qr: undefined });
                 }
-            }, 10000);
+            }, 40000);
         });
 
         // We also need to attach the listener permanently, not just for the promise

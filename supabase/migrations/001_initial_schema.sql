@@ -115,4 +115,20 @@ CREATE OR REPLACE FUNCTION cleanup_old_messages() RETURNS void AS $$ BEGIN
 DELETE FROM messages
 WHERE created_at < NOW() - INTERVAL '30 days';
 END;
-$$ LANGUAGE plpgsql;
+-- At the end of the file
+-- webhook_logs table
+CREATE TABLE IF NOT EXISTS public.webhook_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    message_id UUID REFERENCES public.messages(id) ON DELETE CASCADE,
+    session_id UUID REFERENCES public.sessions(id) ON DELETE CASCADE,
+    webhook_url TEXT NOT NULL,
+    payload JSONB NOT NULL,
+    response_status INTEGER,
+    response_body TEXT,
+    error TEXT,
+    attempt_number INTEGER DEFAULT 1,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_webhook_logs_message_id ON public.webhook_logs(message_id);
+CREATE INDEX idx_webhook_logs_session_id ON public.webhook_logs(session_id);
+CREATE INDEX idx_webhook_logs_created_at ON public.webhook_logs(created_at DESC);
