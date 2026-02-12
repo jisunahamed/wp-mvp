@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'; // Ensure no caching for this endpoint
 
 export async function GET(
     req: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const userId = await authenticateApiKey(req);
@@ -14,7 +14,7 @@ export async function GET(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { id } = params;
+        const { id } = await params;
 
         // Fetch session details
         const { data: session, error } = await supabaseAdmin
