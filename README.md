@@ -1,36 +1,141 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WhatsApp API SaaS (MVP)
 
-## Getting Started
+A serverless WhatsApp API designed for n8n workflows, powered by `@whiskeysockets/baileys`, Supabase, and Vercel.
 
-First, run the development server:
+## 🚀 Features
+
+- **Serverless**: Runs on Vercel (stateless architecture).
+- **Multi-tenant**: Supports multiple users and sessions.
+- **REST API**: Simple endpoints for sending messages and managing sessions.
+- **Webhooks**: Real-time incoming message notifications.
+- **n8n Ready**: Optimized for workflow automation.
+
+## 🛠️ Setup Guide
+
+### 1. Prerequisites
+
+- **Node.js 20+**
+- **Supabase Account**: Create a project and get URL/Keys.
+- **Vercel Account**: For deployment.
+
+### 2. Environment Variables
+
+Create a `.env.local` file:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Database Migration
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Run the SQL query in `supabase/migrations/001_initial_schema.sql` in your Supabase SQL Editor to create tables.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Deploy to Vercel
 
-## Learn More
+```bash
+vercel deploy --prod
+```
 
-To learn more about Next.js, take a look at the following resources:
+Make sure to add the environment variables in Vercel Project Settings.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📚 API Documentation
 
-## Deploy on Vercel
+### Authentication
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+All requests (except options/registration) require the header:
+`Authorization: Bearer <your_api_key>`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Endpoints
+
+#### 1. Register User
+
+- **POST** `/api/auth/register`
+- **Body**: `{ "email": "user@example.com", "password": "password" }`
+- **Response**: Returns `api_key`. **Save this immediately.**
+
+#### 2. Create Session
+
+- **POST** `/api/sessions`
+- **Body**: `{ "session_name": "my-whatsapp" }`
+- **Response**: `{ "session_id": "uuid", "status": "pending" }`
+
+#### 3. Connect (QR Code)
+
+- **POST** `/api/sessions/:id/qr` (Polling recommended)
+- **Response**: Returns base64 QR code. Scan with WhatsApp app.
+
+#### 4. Send Message
+
+- **POST** `/api/messages/send`
+- **Body**:
+
+  ```json
+  {
+    "session_id": "uuid",
+    "to": "1234567890",
+    "text": "Hello form API!"
+  }
+  ```
+
+#### 5. Configure Webhook
+
+- **PATCH** `/api/sessions/:id/webhook`
+- **Body**: `{ "webhook_url": "https://n8n.your-domain.com/webhook/..." }`
+
+---
+
+## 🧩 n8n Integration Guide
+
+### How to Receive Messages in n8n
+
+1. **Create a "Webhook" Node** in n8n.
+   - Method: `POST`
+   - Path: `whatsapp-incoming`
+   - Copy the **Test URL**.
+
+2. **Register the Webhook** in this API.
+   - Use the `PATCH /api/sessions/:id/webhook` endpoint.
+   - Paste the n8n URL.
+
+3. **Activate** the n8n workflow.
+
+### Sample Payload
+
+```json
+{
+  "event": "message.received",
+  "session_id": "uuid",
+  "message": {
+    "id": "MsgID...",
+    "from": "1234567890",
+    "type": "text",
+    "text": "Hello world"
+  }
+}
+```
+
+### How to Send Messages from n8n
+
+1. **Use "HTTP Request" Node**.
+2. **Method**: `POST`
+3. **URL**: `https://your-api.vercel.app/api/messages/send`
+4. **Header Auth**: `Authorization: Bearer sk_...`
+5. **Body**:
+
+   ```json
+   {
+     "session_id": "{{$json.session_id}}",
+     "to": "{{$json.phone_number}}",
+     "text": "Automated reply"
+   }
+   ```
+
+## ⚠️ Limitations & Risks
+
+- **Unofficial API**: Use a dedicated phone number to avoid bans on your main account.
+- **Latency**: First message after idle time may take 3-5s to warm up.
+- **Rate Limits**: Default 500 messages/day.
