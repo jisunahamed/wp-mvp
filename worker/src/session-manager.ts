@@ -36,6 +36,8 @@ export class SessionManager {
                 },
                 printQRInTerminal: false, // We'll save QR to DB
                 generateHighQualityLinkPreview: true,
+                browser: ['WhatsApp SaaS', 'Chrome', '120.0.0'], // Custom browser string
+                syncFullHistory: false, // Performance
             });
 
             this.sessions.set(sessionId, sock);
