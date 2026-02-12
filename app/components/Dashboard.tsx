@@ -5,7 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { Copy, Check, RefreshCw, Send, Smartphone, Key, LogIn } from "lucide-react";
 
 export default function Dashboard() {
-    const [activeTab, setActiveTab] = useState<"register" | "connect" | "send">("register");
+    const [activeTab, setActiveTab] = useState<"register" | "connect" | "send" | "settings">("register");
     const [authMode, setAuthMode] = useState<'register' | 'login'>('register');
 
     // Auth State
@@ -189,6 +189,13 @@ export default function Dashboard() {
                 >
                     <Send size={16} /> Send Message
                 </button>
+                <button
+                    onClick={() => setActiveTab("settings")}
+                    className={`flex-1 p-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === "settings" ? "text-green-400 border-b-2 border-green-500 bg-green-500/10" : "text-slate-400 hover:text-slate-200"
+                        }`}
+                >
+                    <RefreshCw size={16} /> Settings
+                </button>
             </div>
 
             {/* Content */}
@@ -362,6 +369,62 @@ export default function Dashboard() {
                         >
                             {loading ? "Sending..." : "Send Message"}
                         </button>
+                    </div>
+                )}
+
+                {/* Settings Tab (Webhook) */}
+                {activeTab === "settings" && (
+                    <div className="space-y-4 max-w-md mx-auto mt-4">
+                        <h2 className="text-xl font-bold text-white mb-6">Session & Webhook Settings</h2>
+                        {!sessionId && (
+                            <div className="p-3 bg-yellow-900/20 border border-yellow-800 text-yellow-200 text-sm rounded">
+                                ⚠️ No active session found. Please create/select a session first.
+                            </div>
+                        )}
+
+                        <div className="space-y-2">
+                            <label className="text-sm text-slate-400">Webhook URL</label>
+                            <div className="flex gap-2">
+                                <input
+                                    className="flex-1 bg-slate-800 border-slate-700 rounded p-2 text-white"
+                                    placeholder="https://your-domain.com/webhook"
+                                    id="webhook-url-input"
+                                />
+                                <button
+                                    onClick={async () => {
+                                        const url = (document.getElementById('webhook-url-input') as HTMLInputElement).value;
+                                        if (!url || !sessionId) return;
+                                        setLoading(true);
+                                        try {
+                                            const res = await fetch(`/api/sessions/${sessionId}/webhook`, {
+                                                method: 'PATCH',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'Authorization': `Bearer ${apiKey}`
+                                                },
+                                                body: JSON.stringify({ webhook_url: url })
+                                            });
+                                            const data = await res.json();
+                                            if (res.ok) {
+                                                addLog("Webhook URL updated successfully!");
+                                            } else {
+                                                addLog(`Webhook Error: ${data.error}`);
+                                            }
+                                        } catch (e) {
+                                            addLog("Failed to update webhook.");
+                                        }
+                                        setLoading(false);
+                                    }}
+                                    disabled={loading || !sessionId}
+                                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-2 rounded transition disabled:opacity-50"
+                                >
+                                    Save
+                                </button>
+                            </div>
+                            <p className="text-xs text-slate-500">
+                                We will POST incoming messages and status updates to this URL.
+                            </p>
+                        </div>
                     </div>
                 )}
 

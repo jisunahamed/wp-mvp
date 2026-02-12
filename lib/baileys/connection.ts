@@ -36,7 +36,7 @@ export class BaileysConnectionManager {
         return this.createConnection(sessionId);
     }
 
-    private static async createConnection(sessionId: string) {
+    private static async createConnection(sessionId: string): Promise<{ sock: WASocket; qr?: string }> {
         const { state, saveCreds } = await useSupabaseAuthState(sessionId);
         const { version } = await fetchLatestBaileysVersion();
 
@@ -45,96 +45,107 @@ export class BaileysConnectionManager {
             logger,
             auth: {
                 creds: state.creds,
-                // We use a simple memory store for keys for now, as implementing full DB key store is complex.
-                // This means if function restarts, we might lose some E2E session data (pre-keys), 
-                // causing "waiting for message" on client side sometimes. 
-                // For MVP this is acceptable trade-off vs complexity.
                 keys: makeCacheableSignalKeyStore(state.keys, logger),
             },
             printQRInTerminal: false,
             generateHighQualityLinkPreview: true,
-            // browser: ['WhatsApp API SaaS', 'Chrome', '1.0.0'],
         });
 
         // Save initial connection to map
         connections.set(sessionId, { sock, lastUsed: Date.now() });
 
-        // Handle events
         sock.ev.on('creds.update', saveCreds);
 
-        sock.ev.on('connection.update', async (update: Partial<ConnectionState>) => {
+        // Create a promise that resolves when QR is received or connection opens
+        // This ensures Vercel function stays alive long enough to get the QR
+        const ConnectionPromise = new Promise<{ sock: WASocket; qr?: string }>((resolve) => {
+            let resolved = false;
 
+            const listener = async (update: Partial<ConnectionState>) => {
+                const { connection, lastDisconnect, qr } = update;
 
-            const { connection, lastDisconnect, qr } = update;
+                if (qr) {
+                    // Update QR in memory
+                    const entry = connections.get(sessionId);
+                    if (entry) entry.qr = qr;
 
-            // Update QR in memory
-            if (qr) {
-                const entry = connections.get(sessionId);
-                if (entry) entry.qr = qr;
-
-                // Update DB with QR
-                await supabaseAdmin
-                    .from('sessions')
-                    .update({
-                        qr_code: qr,
-                        qr_expires_at: new Date(Date.now() + 60000).toISOString(),
-                        status: 'qr_ready'
-                    })
-                    .eq('id', sessionId);
-            }
-
-            if (connection === 'open') {
-                // Clear QR
-                const entry = connections.get(sessionId);
-                if (entry) entry.qr = undefined;
-
-                // Get phone number
-                const user = sock.user;
-                const phoneNumber = user?.id?.split(':')[0];
-
-                await supabaseAdmin
-                    .from('sessions')
-                    .update({
-                        status: 'connected',
-                        qr_code: null,
-                        phone_number: phoneNumber,
-                        last_seen: new Date().toISOString()
-                    })
-                    .eq('id', sessionId);
-            }
-
-            if (connection === 'close') {
-                // Handle reconnect
-                const shouldReconnect = (lastDisconnect?.error as any)?.output?.statusCode !== DisconnectReason.loggedOut;
-
-                if (shouldReconnect) {
-                    // Reconnect logic
-                    // In serverless, we might just let it die and next request restarts it.
-                    // But strict "reconnect" might need to happen if valid session.
-                    // For now, we remove from map so next request triggers new connection.
-                    connections.delete(sessionId);
-                } else {
-                    // Logged out
+                    // Update DB with QR
                     await supabaseAdmin
                         .from('sessions')
-                        .update({ status: 'disconnected', auth_state: null })
+                        .update({
+                            qr_code: qr,
+                            qr_expires_at: new Date(Date.now() + 60000).toISOString(),
+                            status: 'qr_ready'
+                        })
                         .eq('id', sessionId);
 
-                    connections.delete(sessionId);
+                    if (!resolved) {
+                        resolved = true;
+                        resolve({ sock, qr });
+                    }
                 }
-            }
+
+                if (connection === 'open') {
+                    // Clear QR
+                    const entry = connections.get(sessionId);
+                    if (entry) entry.qr = undefined;
+
+                    // Get phone number
+                    const user = sock.user;
+                    const phoneNumber = user?.id?.split(':')[0];
+
+                    await supabaseAdmin
+                        .from('sessions')
+                        .update({
+                            status: 'connected',
+                            qr_code: null,
+                            phone_number: phoneNumber,
+                            last_seen: new Date().toISOString()
+                        })
+                        .eq('id', sessionId);
+
+                    if (!resolved) {
+                        resolved = true;
+                        resolve({ sock, qr: undefined });
+                    }
+                }
+
+                if (connection === 'close') {
+                    const shouldReconnect = (lastDisconnect?.error as any)?.output?.statusCode !== DisconnectReason.loggedOut;
+
+                    if (!shouldReconnect) {
+                        await supabaseAdmin
+                            .from('sessions')
+                            .update({ status: 'disconnected', auth_state: null })
+                            .eq('id', sessionId);
+                        connections.delete(sessionId);
+                    } else {
+                        connections.delete(sessionId);
+                    }
+                }
+            };
+
+            sock.ev.on('connection.update', listener);
+
+            // Timeout after 10 seconds if no QR or connection (prevent hanging)
+            setTimeout(() => {
+                if (!resolved) {
+                    console.log(`[${sessionId}] Connection wait timeout`);
+                    resolve({ sock, qr: undefined });
+                }
+            }, 10000);
         });
 
-        // Handle incoming messages
-        sock.ev.on('messages.upsert', async (m) => {
-            if (m.type === 'notify') {
-                for (const msg of m.messages) {
-                    await handleIncomingMessage(sessionId, msg);
-                }
-            }
-        });
+        // We also need to attach the listener permanently, not just for the promise
+        // The promise logic effectively duplicates the event handling for the *first* event
+        // But we can just return the promise. 
+        // Note: The listener above handles DB updates which is what we need. 
+        // However, `sock.ev.on` adds a listener. The promise wrapper adds one listener.
+        // We should ensure the listener persists for subsequent updates (like 'open' after 'qr').
+        // Actually, the above listener IS persistent. It will keep running. 
 
-        return { sock, qr: undefined };
+        // Wait for the initial event
+        return ConnectionPromise;
     }
 
     static async closeConnection(sessionId: string) {
