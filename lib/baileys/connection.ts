@@ -37,8 +37,14 @@ export class BaileysConnectionManager {
     }
 
     private static async createConnection(sessionId: string): Promise<{ sock: WASocket; qr?: string }> {
+        console.log(`[${sessionId}] Starting connection creation...`);
         const { state, saveCreds } = await useSupabaseAuthState(sessionId);
-        const { version } = await fetchLatestBaileysVersion();
+        console.log(`[${sessionId}] Auth state loaded.`);
+
+        // optimizing startup by skipping version fetch
+        // const { version } = await fetchLatestBaileysVersion();
+        const version: [number, number, number] = [2, 3000, 1015901307];
+        console.log(`[${sessionId}] Using Baileys version: ${version.join('.')}`);
 
         const sock = makeWASocket({
             version,
@@ -49,6 +55,9 @@ export class BaileysConnectionManager {
             },
             printQRInTerminal: false,
             generateHighQualityLinkPreview: true,
+            connectTimeoutMs: 30000, // extend internal connection timeout
+            keepAliveIntervalMs: 30000,
+            syncFullHistory: false, // minimize data sync for faster startup
         });
 
         // Save initial connection to map
