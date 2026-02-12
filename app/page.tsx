@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import Dashboard from "./components/Dashboard";
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +47,10 @@ export default function Home() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div id="dashboard" className="w-full flex justify-center mb-24 scroll-mt-24">
+        <Dashboard />
       </div>
 
       <div id="docs" className="mb-32 grid text-left lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-1 gap-12 scroll-mt-20">
