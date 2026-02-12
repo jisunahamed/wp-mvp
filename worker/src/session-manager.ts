@@ -23,8 +23,9 @@ export class SessionManager {
 
         try {
             const { state, saveCreds } = await useSupabaseAuthState(sessionId);
-            // hardcoded version for stability similar to the nextjs fix
-            const version: [number, number, number] = [2, 3000, 1015901307];
+            // On a VPS, we can safely fetch the latest version
+            const { version } = await fetchLatestBaileysVersion();
+            logger.info({ sessionId, version: version.join('.') }, 'Using Baileys version');
 
             const sock = makeWASocket({
                 version,
