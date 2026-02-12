@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 export function generateApiKey(): string {
     return `sk_${crypto.randomBytes(32).toString('hex')}`;

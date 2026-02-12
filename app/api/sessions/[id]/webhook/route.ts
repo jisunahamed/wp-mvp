@@ -7,15 +7,16 @@ export const dynamic = 'force-dynamic';
 
 export async function PATCH(
     req: Request,
-    { params }: { params: Promise<{ id: string }> }
+    props: { params: Promise<{ id: string }> }
 ) {
     try {
-        const userId = await authenticateApiKey(req);
-        if (!userId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const params = await props.params;
+        if (!params?.id) {
+            return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
         }
+        const { id } = params;
 
-        const { id } = await params;
+        const userId = await authenticateApiKey(req);
         const body = await req.json();
 
         // Validate Input

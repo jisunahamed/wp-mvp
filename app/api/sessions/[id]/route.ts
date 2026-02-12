@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
     req: Request,
-    { params }: { params: Promise<{ id: string }> }
+    props: { params: Promise<{ id: string }> }
 ) {
     try {
         const userId = await authenticateApiKey(req);
@@ -14,7 +14,9 @@ export async function GET(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { id } = await params;
+        const params = await props.params;
+        if (!params?.id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
+        const { id } = params;
 
         const { data: session, error } = await supabaseAdmin
             .from('sessions')
@@ -43,7 +45,7 @@ export async function GET(
 
 export async function DELETE(
     req: Request,
-    { params }: { params: Promise<{ id: string }> }
+    props: { params: Promise<{ id: string }> }
 ) {
     try {
         const userId = await authenticateApiKey(req);
@@ -51,7 +53,9 @@ export async function DELETE(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { id } = await params;
+        const params = await props.params;
+        if (!params?.id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
+        const { id } = params;
 
         // TODO: We should also ideally logout the Baileys session here if it's active
         // This will happen in Phase 3 when we integrate ConnectionManager

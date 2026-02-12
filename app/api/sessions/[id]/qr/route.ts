@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { authenticateApiKey } from '@/lib/middleware/auth';
 
-export const dynamic = 'force-dynamic'; // Ensure no caching for this endpoint
+export const dynamic = 'force-dynamic';
 
 export async function GET(
     req: Request,
-    { params }: { params: Promise<{ id: string }> }
+    props: { params: Promise<{ id: string }> }
 ) {
     try {
         const userId = await authenticateApiKey(req);
@@ -14,7 +14,9 @@ export async function GET(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { id } = await params;
+        const params = await props.params;
+        if (!params?.id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
+        const { id } = params;
 
         // Fetch session details
         const { data: session, error } = await supabaseAdmin
@@ -41,20 +43,6 @@ export async function GET(
         const isExpired = expiresAt ? expiresAt < now : true;
 
         if (!session.qr_code || isExpired) {
-            // If expired or missing, and we are not connected, the client should keep polling 
-            // BUT for the very first call, we might not have a QR yet if the connection loop hasn't started.
-            // In a real serverless architecture, GET /qr usually triggers the generation if missing.
-            // However, per architecture plan, the User might need to hit a "connect" endpoint or we rely on background trigger?
-            // Plan says: "User polls GET /qr -> Initialize Baileys... -> Generate QR".
-            // So this endpoint needs to TRIGGER connection if it's dead/idle.
-
-            // TODO: Integration with BaileysConnectionManager in Phase 3.
-            // For now (Phase 2), we stub this response or return "waiting_for_qr".
-
-            // Since we can't spin up Baileys here (async/long-running), we normally would trigger an async function 
-            // or if Vercel serverless allows, we wait for Baileys to emit QR (up to 10-15s).
-            // Given Vercel limits, we might just return "initializing" and return early.
-
             return NextResponse.json({
                 status: 'initializing',
                 message: 'QR code generating... please poll again in 5 seconds',

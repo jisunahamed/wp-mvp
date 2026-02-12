@@ -1,11 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+import { supabaseAdmin } from '@/lib/supabase';
 
 // Use a service role client for rate limiting to bypass RLS if needed, 
 // though typically rate limits are system-managed.
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// We use the shared admin client which is safe/mocked during build
+const supabase = supabaseAdmin;
 
 export async function checkRateLimit(userId: string): Promise<{
     allowed: boolean;

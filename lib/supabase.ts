@@ -9,11 +9,41 @@ const isValidUrl = (url: string) => url.startsWith('http');
 // Helper to create client safely
 const createSafeClient = (url: string, key: string, options: any = {}) => {
     if (!isValidUrl(url) || !key) {
-        // Return a dummy object that matches the shape largely, or at least doesn't crash on import
-        // Note: This will crash at runtime if used, which is intended if config is missing.
+        console.warn('Supabase credentials missing during build. Using mock client.');
+
+        // Explicit mock object to handle Supabase chaining without Proxy magic
+        const mockQueryBuilder: any = {
+            select: () => mockQueryBuilder,
+            insert: () => mockQueryBuilder,
+            update: () => mockQueryBuilder,
+            delete: () => mockQueryBuilder,
+            eq: () => mockQueryBuilder,
+            neq: () => mockQueryBuilder,
+            gt: () => mockQueryBuilder,
+            lt: () => mockQueryBuilder,
+            gte: () => mockQueryBuilder,
+            lte: () => mockQueryBuilder,
+            in: () => mockQueryBuilder,
+            is: () => mockQueryBuilder,
+            like: () => mockQueryBuilder,
+            ilike: () => mockQueryBuilder,
+            contains: () => mockQueryBuilder,
+            order: () => mockQueryBuilder,
+            limit: () => mockQueryBuilder,
+            single: () => mockQueryBuilder,
+            maybeSingle: () => mockQueryBuilder,
+            // Make it thenable to resolve to empty data
+            then: (resolve: Function) => resolve({ data: null, error: null, count: null })
+        };
+
         return {
-            from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }) }) }),
-            auth: { getUser: () => Promise.resolve({ data: { user: null }, error: null }) }
+            from: () => mockQueryBuilder,
+            auth: {
+                getUser: () => Promise.resolve({ data: { user: null }, error: null }),
+                signUp: () => Promise.resolve({ data: { user: null, session: null }, error: null }),
+                signInWithPassword: () => Promise.resolve({ data: { user: null, session: null }, error: null }),
+                signOut: () => Promise.resolve({ error: null })
+            }
         } as any;
     }
     return createClient(url, key, options);

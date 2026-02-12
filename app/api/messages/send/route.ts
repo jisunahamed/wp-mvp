@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { authenticateApiKey } from '@/lib/middleware/auth';
 import { checkRateLimit } from '@/lib/middleware/rate-limit';
 import { sendMessageSchema } from '@/lib/validation/schemas';
-import { BaileysConnectionManager } from '@/lib/baileys/connection';
+
 
 export const dynamic = 'force-dynamic';
 
@@ -62,6 +62,8 @@ export async function POST(req: Request) {
 
         // 5. Baileys Send
         try {
+            // Dynamic import to avoid build-time initialization issues with native modules in Baileys
+            const { BaileysConnectionManager } = await import('@/lib/baileys/connection');
             const { sock } = await BaileysConnectionManager.getConnection(session.id);
 
             const jid = `${to}@s.whatsapp.net`;

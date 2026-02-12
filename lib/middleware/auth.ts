@@ -1,10 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase';
 import { validateApiKeyHash } from '@/lib/utils/api-key';
 import { NextResponse } from 'next/server';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// We use the shared admin client which is safe/mocked during build
+const supabase = supabaseAdmin;
 
 // Simple in-memory cache for API keys to reduce DB hits
 // Key: apiKey, Value: { userId, expiresAt }
